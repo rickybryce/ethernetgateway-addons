@@ -1,3 +1,5 @@
-# Windows batch files need CRLF; the shell scripts need LF.
-*.cmd  text eol=crlf
-*.sh   text eol=lf
+# Stored exactly as written: the gateway downloads these files raw (no
+# checkout), so the repo must hold the line endings each platform needs.
+# Windows batch files: CRLF.  Shell scripts: LF.
+*.cmd  -text
+*.sh   -text
