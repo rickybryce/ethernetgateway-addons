@@ -34,7 +34,13 @@ def read_settings():
 
 SETTINGS = read_settings()
 COLOR = os.environ.get("EG_COLOR") == "1"
-WIDTH = max(32, min(int(os.environ.get("EG_COLUMNS") or 80), 80)) - 1
+def columns():
+    try:
+        return int(os.environ.get("EG_COLUMNS") or 80)
+    except ValueError:
+        return 80
+
+WIDTH = max(32, min(columns(), 80)) - 1
 
 GREEN, YELLOW, RED, WHITE, OFF = (
     ("\033[32m", "\033[33m", "\033[31m", "\033[37m", "\033[0m") if COLOR else ("",) * 5
@@ -46,24 +52,32 @@ def out(text="", color=GREEN, end="\n"):
     """Type text out at the configured baud rate (ten bits a character)."""
     delay = 10.0 / SETTINGS["baud"] if SETTINGS["baud"] else 0
     sys.stdout.write(color)
-    for ch in text + end:
-        sys.stdout.write(ch)
-        if delay:
-            sys.stdout.flush()
-            time.sleep(delay)
-    sys.stdout.write(OFF)
+    for i, chunk in enumerate((text, end)):
+        if i == 1:
+            sys.stdout.write(OFF)
+        for ch in chunk:
+            sys.stdout.write(ch)
+            if delay:
+                sys.stdout.flush()
+                time.sleep(delay)
     sys.stdout.flush()
 
 def pause(seconds):
     if SETTINGS["baud"]:
         time.sleep(seconds)
 
+class Quit(Exception):
+    """Q typed at any prompt: leave the game."""
+
 def ask(prompt):
     out(prompt, YELLOW, end="")
     line = sys.stdin.readline()
     if not line:            # the caller left
         sys.exit(0)
-    return line.strip()
+    line = line.strip()
+    if line.upper() in ("Q", "QUIT"):
+        raise Quit
+    return line
 
 def n(x):
     return "{:,}".format(x)
@@ -215,9 +229,7 @@ def play():
         pick = ask("SIDE: ")
         if pick in SIDES:
             break
-        if pick.upper() in ("Q", "QUIT"):
-            return
-        out("ENTER 1 OR 2.")
+        out("ENTER 1 OR 2, OR Q TO QUIT.")
     me = SIDES[pick]
     them = SIDES["2" if pick == "1" else "1"]
     names = (me[0], them[0])
@@ -229,6 +241,7 @@ def play():
     out("EACH SIDE HAS {} MISSILES.".format(missiles))
     out("NAME AN ENEMY CITY TO TARGET.")
     out("? LISTS TARGETS. STAND DOWN ENDS IT.")
+    out("Q QUITS.")
     fired = 0
     while fired < missiles:
         out()
@@ -239,7 +252,7 @@ def play():
         if word in ("?", "LIST", "HELP"):
             list_cities(them[1], gone)
             continue
-        if word in ("STAND DOWN", "STANDDOWN", "PEACE", "Q", "QUIT"):
+        if word in ("STAND DOWN", "STANDDOWN", "PEACE"):
             stood_down(fired)
             if fired == 0:
                 return
@@ -251,7 +264,11 @@ def play():
             break
         city = find_city(typed, them[1])
         if city is None:
-            out("NO SUCH TARGET. ? LISTS THEM.")
+            own = find_city(typed, me[1])
+            if own:
+                out(own + " IS ONE OF YOURS.")
+            else:
+                out("NO SUCH TARGET. ? LISTS THEM.")
             continue
         if city in gone:
             out(city + " IS ALREADY DESTROYED.")
@@ -274,12 +291,21 @@ def play():
     final(names, score)
 
 def main():
+    # A byte that is not UTF-8 (an old terminal's accented letter, a
+    # Commodore graphics key) must not end the game with a traceback.
+    try:
+        sys.stdin.reconfigure(errors="replace")
+    except (AttributeError, ValueError):
+        pass
     try:
         while True:
             play()
             out()
             if ask("PLAY AGAIN? (Y/N) ").upper()[:1] != "Y":
                 break
+        out("CONNECTION CLOSED.", WHITE)
+    except Quit:
+        out()
         out("CONNECTION CLOSED.", WHITE)
     except (BrokenPipeError, KeyboardInterrupt):
         # The caller left mid-line: nothing more to say, and no traceback

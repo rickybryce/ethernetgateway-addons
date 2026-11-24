@@ -8,6 +8,7 @@ the way a BBS offered doors.
 |---|---|
 | `hello` | Shows the `EG_*` values the gateway passes, then reads a typed line. The place to start when writing your own. |
 | `guess` | Guess the number: a small game with ANSI colour that also works on a Commodore 64. |
+| `mad` | M.A.D. (Mutual Assured Destruction): a Cold War strategy simulation typed out at 600 baud. Needs Python 3 (standard library only). |
 
 ## Installing
 

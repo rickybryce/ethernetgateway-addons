@@ -3,6 +3,8 @@
 # Windows batch files: CRLF.  Shell scripts: LF.
 *.cmd  -text
 *.sh   -text
+# Python: LF, as the shebang line needs.
+*.py   -text
 # The signed add-on list: the signature covers these exact bytes.
 catalogue.txt -text
 catalogue.sig -text
