@@ -51,6 +51,10 @@ GREEN, YELLOW, RED, WHITE, OFF = (
 def out(text="", color=GREEN, end="\n"):
     """Type text out at the configured baud rate (ten bits a character)."""
     delay = 10.0 / SETTINGS["baud"] if SETTINGS["baud"] else 0
+    # Paced against the clock, not by summing sleeps: a sleep can run long
+    # (on Windows before Python 3.11 it rounds up to ~15 ms), and the next
+    # character then simply waits less.
+    due = time.monotonic()
     sys.stdout.write(color)
     for i, chunk in enumerate((text, end)):
         if i == 1:
@@ -59,7 +63,10 @@ def out(text="", color=GREEN, end="\n"):
             sys.stdout.write(ch)
             if delay:
                 sys.stdout.flush()
-                time.sleep(delay)
+                due += delay
+                wait = due - time.monotonic()
+                if wait > 0:
+                    time.sleep(wait)
     sys.stdout.flush()
 
 def pause(seconds):
@@ -197,7 +204,7 @@ def stood_down(fired):
     else:
         out("CEASE-FIRE ORDERED.", WHITE)
         pause(0.5)
-        out("THE ENEMY ANSWERS YOUR LAST STRIKE,", WHITE)
+        out("THE ENEMY FIRES ONE LAST TIME,", WHITE)
         out("THEN STANDS DOWN.", WHITE)
 
 def final(names, score):
